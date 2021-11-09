@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>mp4player</title>
+</head><body>
+
+<video id=video controls></video><br>
+<select id=sel></select>
+<select id=selrate></select>
+<button id=btn>play</button>
+
+<script type="module">
+import { sleep } from "https://js.sabae.cc/sleep.js";
+
+const waitPlayEnd = async (video) => {
+  for (;;) {
+    await sleep(100);
+    //console.log(video.currentTime, video.duration)
+    if (video.currentTime == video.duration) {
+      return;
+    }
+  }
+};
+
+const waitClick = (comp) => {
+  return new Promise(resolve => {
+    comp.onclick = () => {
+      resolve();
+    }
+  });
+};
+
+const waitVideoReady = (video) => {
+  return new Promise(resolve => {
+    video.ontimeupdate = (e) => {
+      video.ontimeupdate = null;
+      resolve();
+    };
+  });
+};
+
+const waitChange = (comp) => {
+  return new Promise(resolve => {
+    comp.onchange = () => {
+      resolve();
+    }
+  });
+};
+
+const requestPnP = (comp) => {
+  if (!document.pictureInPictureElement) {
+    try {
+      comp.requestPictureInPicture();
+    } catch (e) {
+      console.log(e);
+    }
+  }
+};
+
+onload = async () => {
+  const data = await (await fetch("./list.json")).json();
+  console.log(data);
+  data.forEach(d => {
+    const opt = document.createElement("option");
+    opt.textContent = d;
+    sel.appendChild(opt);
+  });
+
+  for (let i = 100; i <= 300; i += 25) {
+    const opt = document.createElement("option");
+    opt.textContent = i + "%";
+    opt.value = i / 100;
+    selrate.appendChild(opt);
+  }
+  selrate.onchange = () => {
+    video.playbackRate = selrate.value;
+  };
+};
+
+btn.onclick = async () => {
+  btn.onclick = null;
+  btn.textContent = "skip";
+
+  for (;;) {
+    const d = sel.value;
+    const idx = sel.selectedIndex;
+    video.src = d;
+    video.play();
+    await waitVideoReady(video);
+    requestPnP(video);
+    await Promise.any([waitClick(btn), waitPlayEnd(video), waitChange(sel)]);
+    const idx2 = sel.selectedIndex;
+    if (idx == idx2) {
+      if (idx == sel.children.length - 1) {
+        sel.selectedIndex = 0;
+      } else {
+        sel.selectedIndex = idx + 1;
+      }
+    }
+  }
+};
+</script>
+
+<style>
+body {
+  margin: 0;
+}
+video {
+  width: 100vw;
+}
+</style>
